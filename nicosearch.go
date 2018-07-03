@@ -4,24 +4,35 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 const (
-	apiLimit     = 100
-	callInterval = 5 * time.Second
+	apiLimit      = 100
+	callInterval  = 5 * time.Second
+	thumbInterval = 100 * time.Millisecond
 )
+
+var wg = new(sync.WaitGroup)
 
 func main() {
 	var mode string
 	flag.StringVar(&mode, "mode", "keyword", "Search mode [keyword, title, tag]")
-	//title := "【Elite:Dangerous】ゆっくり宇宙日記"
+
+	var thumbsDir string
+	flag.StringVar(&thumbsDir, "thumbs", "", "Thumbnail save dir")
+
+	var limit int
+	flag.IntVar(&limit, "l", 10000, "Limit")
 
 	flag.Parse()
 
@@ -33,7 +44,8 @@ func main() {
 
 	title := args[0]
 
-	ch := callAll(title, mode, 1000)
+	ch := callAll(title, mode, limit)
+	thumbCh := saveThumbs(thumbsDir)
 
 	fmt.Print("[\n\t")
 	cnt := 0
@@ -41,6 +53,8 @@ func main() {
 		if cnt > 0 {
 			fmt.Print(",\n\t")
 		}
+
+		thumbCh <- d
 
 		enc := json.NewEncoder(os.Stdout)
 		err := enc.Encode(d)
@@ -51,6 +65,10 @@ func main() {
 		cnt++
 	}
 	fmt.Println("\n]")
+
+	close(thumbCh)
+
+	wg.Wait()
 }
 
 func callAll(searchText, mode string, softLimt int) chan videoData {
@@ -160,4 +178,55 @@ type videoData struct {
 	ThumbnailURL   string `json:"thumbnailUrl"`
 	Title          string `json:"title"`
 	ViewCounter    int64  `json:"viewCounter"`
+}
+
+func saveThumbs(dir string) chan videoData {
+	ch := make(chan videoData, 1024)
+
+	if dir == "" {
+		go func() {
+			for {
+				if _, ok := <-ch; !ok {
+					return
+				}
+			}
+		}()
+		return ch
+	}
+
+	err := os.MkdirAll(dir, 0744)
+	if err != nil {
+		log.Fatal("Can't create directory: ", err)
+	}
+
+	wg.Add(1)
+
+	go func() {
+		for d := range ch {
+			res, err := http.Get(d.ThumbnailURL)
+			if err != nil {
+				log.Printf("Thumbnail get error <%s>: %s", d.ThumbnailURL, err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+
+			f, err := os.Create(filepath.Join(dir, d.ContentID+".jpg"))
+			if err != nil {
+				log.Fatal("File error: ", err)
+			}
+
+			_, err = io.Copy(f, res.Body)
+			if err != nil {
+				log.Fatal("File error: ", err)
+			}
+
+			f.Close()
+			res.Body.Close()
+			time.Sleep(thumbInterval)
+		}
+
+		wg.Done()
+	}()
+
+	return ch
 }
