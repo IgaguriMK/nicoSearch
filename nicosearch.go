@@ -53,8 +53,8 @@ func main() {
 	fmt.Println("\n]")
 }
 
-func callAll(searchText, mode string, softLimt int) chan VideoData {
-	ch := make(chan VideoData, 10)
+func callAll(searchText, mode string, softLimt int) chan videoData {
+	ch := make(chan videoData, 10)
 
 	go func() {
 		defer close(ch)
@@ -86,7 +86,7 @@ func callAll(searchText, mode string, softLimt int) chan VideoData {
 	return ch
 }
 
-func callAPI(searchText, mode string, offset int) (*Resp, error) {
+func callAPI(searchText, mode string, offset int) (*resp, error) {
 	service := "video"
 
 	params := url.Values{}
@@ -130,7 +130,7 @@ func callAPI(searchText, mode string, offset int) (*Resp, error) {
 	}
 	defer res.Body.Close()
 
-	resp := new(Resp)
+	resp := new(resp)
 	err = json.NewDecoder(res.Body).Decode(resp)
 	if err != nil {
 		return nil, err
@@ -139,8 +139,8 @@ func callAPI(searchText, mode string, offset int) (*Resp, error) {
 	return resp, nil
 }
 
-type Resp struct {
-	Data []VideoData `json:"data"`
+type resp struct {
+	Data []videoData `json:"data"`
 	Meta struct {
 		ID         string `json:"id"`
 		Status     int64  `json:"status"`
@@ -148,7 +148,7 @@ type Resp struct {
 	} `json:"meta"`
 }
 
-type VideoData struct {
+type videoData struct {
 	CategoryTags   string `json:"categoryTags"`
 	CommentCounter int64  `json:"commentCounter"`
 	ContentID      string `json:"contentId"`
