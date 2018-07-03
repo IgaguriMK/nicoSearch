@@ -176,7 +176,7 @@ type videoData struct {
 	ThumbnailURL   string `json:"thumbnailUrl"`
 	Title          string `json:"title"`
 	ViewCounter    int64  `json:"viewCounter"`
-	UpdatedAt      int64  `json:"updatedAt"`
+	UpdatedAt      string `json:"updatedAt"`
 }
 
 func saveThumbs(dir string) chan videoData {
@@ -230,10 +230,10 @@ func saveThumbs(dir string) chan videoData {
 	return ch
 }
 
-func lastMod() (int64, error) {
+func lastMod() (string, error) {
 	res, err := http.Get("http://api.search.nicovideo.jp/api/v2/snapshot/version")
 	if err != nil {
-		return -1, err
+		return "", err
 	}
 	defer res.Body.Close()
 
@@ -242,13 +242,8 @@ func lastMod() (int64, error) {
 	}
 	err = json.NewDecoder(res.Body).Decode(&lm)
 	if err != nil {
-		return -1, err
+		return "", err
 	}
 
-	l, err := time.Parse(time.RFC3339, lm.LastModified)
-	if err != nil {
-		return -1, err
-	}
-
-	return l.Unix(), nil
+	return lm.LastModified, nil
 }
