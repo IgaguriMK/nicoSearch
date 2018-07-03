@@ -47,13 +47,7 @@ func main() {
 	ch := callAll(title, mode, limit)
 	thumbCh := saveThumbs(thumbsDir)
 
-	fmt.Print("[\n\t")
-	cnt := 0
 	for d := range ch {
-		if cnt > 0 {
-			fmt.Print(",\n\t")
-		}
-
 		thumbCh <- d
 
 		enc := json.NewEncoder(os.Stdout)
@@ -62,9 +56,7 @@ func main() {
 			log.Fatal("Encode error: ", err)
 		}
 
-		cnt++
 	}
-	fmt.Println("\n]")
 
 	close(thumbCh)
 
@@ -73,6 +65,11 @@ func main() {
 
 func callAll(searchText, mode string, softLimt int) chan videoData {
 	ch := make(chan videoData, 10)
+
+	updatedAt, err := lastMod()
+	if err != nil {
+		log.Fatal("API error: ", err)
+	}
 
 	go func() {
 		defer close(ch)
@@ -86,6 +83,7 @@ func callAll(searchText, mode string, softLimt int) chan videoData {
 			}
 
 			for _, d := range resp.Data {
+				d.UpdatedAt = updatedAt
 				ch <- d
 			}
 
@@ -178,6 +176,7 @@ type videoData struct {
 	ThumbnailURL   string `json:"thumbnailUrl"`
 	Title          string `json:"title"`
 	ViewCounter    int64  `json:"viewCounter"`
+	UpdatedAt      int64  `json:"updatedAt"`
 }
 
 func saveThumbs(dir string) chan videoData {
@@ -229,4 +228,27 @@ func saveThumbs(dir string) chan videoData {
 	}()
 
 	return ch
+}
+
+func lastMod() (int64, error) {
+	res, err := http.Get("http://api.search.nicovideo.jp/api/v2/snapshot/version")
+	if err != nil {
+		return -1, err
+	}
+	defer res.Body.Close()
+
+	var lm struct {
+		LastModified string `json:"last_modified"`
+	}
+	err = json.NewDecoder(res.Body).Decode(&lm)
+	if err != nil {
+		return -1, err
+	}
+
+	l, err := time.Parse(time.RFC3339, lm.LastModified)
+	if err != nil {
+		return -1, err
+	}
+
+	return l.Unix(), nil
 }
