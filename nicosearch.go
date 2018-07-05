@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/IgaguriMK/nicoSearch/model"
 )
 
 const (
@@ -63,8 +65,8 @@ func main() {
 	wg.Wait()
 }
 
-func callAll(searchText, mode string, softLimt int) chan videoData {
-	ch := make(chan videoData, 10)
+func callAll(searchText, mode string, softLimt int) chan model.VideoData {
+	ch := make(chan model.VideoData, 10)
 
 	updatedAt, err := lastMod()
 	if err != nil {
@@ -156,7 +158,7 @@ func callAPI(searchText, mode string, offset int) (*resp, error) {
 }
 
 type resp struct {
-	Data []videoData `json:"data"`
+	Data []model.VideoData `json:"data"`
 	Meta struct {
 		ID         string `json:"id"`
 		Status     int64  `json:"status"`
@@ -164,23 +166,8 @@ type resp struct {
 	} `json:"meta"`
 }
 
-type videoData struct {
-	CategoryTags   string `json:"categoryTags"`
-	CommentCounter int64  `json:"commentCounter"`
-	ContentID      string `json:"contentId"`
-	Description    string `json:"description"`
-	LengthSeconds  int64  `json:"lengthSeconds"`
-	MylistCounter  int64  `json:"mylistCounter"`
-	StartTime      string `json:"startTime"`
-	Tags           string `json:"tags"`
-	ThumbnailURL   string `json:"thumbnailUrl"`
-	Title          string `json:"title"`
-	ViewCounter    int64  `json:"viewCounter"`
-	UpdatedAt      string `json:"updatedAt"`
-}
-
-func saveThumbs(dir string) chan videoData {
-	ch := make(chan videoData, 1024)
+func saveThumbs(dir string) chan model.VideoData {
+	ch := make(chan model.VideoData, 1024)
 
 	if dir == "" {
 		go func() {
