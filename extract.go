@@ -62,7 +62,7 @@ func main() {
 
 		fmt.Fprintf(
 			outf,
-			"%s\t%d\t%d\t%d\t%f\t%f\t%f\n",
+			`%s	%d	%d	%d	%f	%f	%f`+"\n",
 			vd.ContentID,
 			vd.ViewCounter,
 			vd.CommentCounter,
