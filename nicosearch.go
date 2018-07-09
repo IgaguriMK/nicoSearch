@@ -30,11 +30,14 @@ func main() {
 	var mode string
 	flag.StringVar(&mode, "mode", "keyword", "Search mode [keyword, title, tag]")
 
+	var limit int
+	flag.IntVar(&limit, "l", 10000, "Limit")
+
 	var thumbsDir string
 	flag.StringVar(&thumbsDir, "thumbs", "", "Thumbnail save dir")
 
-	var limit int
-	flag.IntVar(&limit, "l", 10000, "Limit")
+	var descriptionDir string
+	flag.StringVar(&descriptionDir, "desc", "", "Split description into directory")
 
 	flag.Parse()
 
@@ -46,10 +49,24 @@ func main() {
 
 	title := args[0]
 
+	if descriptionDir != "" {
+		err := os.MkdirAll(descriptionDir, 0744)
+		if err != nil {
+			log.Fatal("Can't create directory: ", err)
+		}
+	}
+
 	ch := callAll(title, mode, limit)
 	thumbCh := saveThumbs(thumbsDir)
 
 	for d := range ch {
+		if descriptionDir != "" {
+			err := d.SplitDescription(descriptionDir)
+			if err != nil {
+				log.Fatal("Failed save split description: ", err)
+			}
+		}
+
 		thumbCh <- d
 
 		enc := json.NewEncoder(os.Stdout)
