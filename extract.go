@@ -52,6 +52,7 @@ func main() {
 	fs.Add("Mylist", "%d", func(v model.VideoData) interface{} { return v.MylistCounter })
 	fs.Add("Dur", "%f", func(v model.VideoData) interface{} { return toDay(v.UpdatedAt) - toDay(v.StartTime) })
 	fs.Add("Post", "%f", func(v model.VideoData) interface{} { return toDay(v.StartTime) - baseDay })
+	fs.Add("Update", "%f", func(v model.VideoData) interface{} { return toDay(v.UpdatedAt) })
 	fs.Add("TagNum", "%d", func(v model.VideoData) interface{} { return len(strings.Split(v.Tags, " ")) })
 	fs.Add("Length", "%d", func(v model.VideoData) interface{} { return v.LengthSeconds })
 
