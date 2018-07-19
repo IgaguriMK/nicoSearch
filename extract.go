@@ -15,7 +15,7 @@ import (
 
 func main() {
 	var baseDayStr string
-	flag.StringVar(&baseDayStr, "b", "2017-07-23T10:00:00+09:00", "Base date")
+	flag.StringVar(&baseDayStr, "b", "2007-03-06T00:33:00+09:00", "Base date")
 
 	flag.Parse()
 
@@ -44,9 +44,22 @@ func main() {
 	}
 	defer outf.Close()
 
-	fmt.Fprintln(outf, `ID	View	Comment	Mylist	PostAt	At	Day`)
+	fs := new(fileds)
+
+	fs.Add("ID", "%s", func(v model.VideoData) interface{} { return v.ContentID })
+	fs.Add("View", "%d", func(v model.VideoData) interface{} { return v.ViewCounter })
+	fs.Add("Comment", "%d", func(v model.VideoData) interface{} { return v.CommentCounter })
+	fs.Add("Mylist", "%d", func(v model.VideoData) interface{} { return v.MylistCounter })
+	fs.Add("Dur", "%f", func(v model.VideoData) interface{} { return toDay(v.UpdatedAt) - toDay(v.StartTime) })
+	fs.Add("Post", "%f", func(v model.VideoData) interface{} { return toDay(v.StartTime) - baseDay })
+	fs.Add("TagNum", "%d", func(v model.VideoData) interface{} { return len(strings.Split(v.Tags, " ")) })
+	fs.Add("Length", "%d", func(v model.VideoData) interface{} { return v.LengthSeconds })
+
+	fmt.Fprintln(outf, fs.Header())
 
 	idMap := newSortMap()
+
+	oldest := toTime("2099-12-31T23:59:59+09:00")
 
 	for dec.More() {
 		var vd model.VideoData
@@ -57,21 +70,15 @@ func main() {
 
 		idMap.Add(vd.ContentID, vd.Title)
 
-		upDay := toDay(vd.StartTime)
-		getDay := toDay(vd.UpdatedAt)
+		fmt.Fprintln(outf, fs.Line(vd))
 
-		fmt.Fprintf(
-			outf,
-			`%s	%d	%d	%d	%f	%f	%f`+"\n",
-			vd.ContentID,
-			vd.ViewCounter,
-			vd.CommentCounter,
-			vd.MylistCounter,
-			upDay-baseDay,
-			getDay-baseDay,
-			getDay-upDay,
-		)
+		t := toTime(vd.StartTime)
+		if t.Before(oldest) {
+			oldest = t
+		}
 	}
+
+	fmt.Println(oldest.Format(time.RFC3339))
 
 	idf, err := os.Create(basename + "-title.txt")
 	if err != nil {
@@ -122,10 +129,55 @@ func (sm *sortMap) List() []keyVal {
 }
 
 func toDay(str string) float64 {
+	t := toTime(str)
+	return float64(t.Unix()) / (24 * 3600)
+}
+
+func toTime(str string) time.Time {
 	t, err := time.Parse(time.RFC3339, str)
 	if err != nil {
 		log.Fatal("Time parse error: ", err)
 	}
+	return t
+}
 
-	return float64(t.Unix()) / (24 * 3600)
+type field struct {
+	Name   string
+	Format string
+	GetVal func(v model.VideoData) interface{}
+}
+
+type fileds struct {
+	fs []field
+}
+
+func (f *fileds) Add(name, format string, getVal func(v model.VideoData) interface{}) {
+	f.fs = append(
+		f.fs,
+		field{
+			Name:   name,
+			Format: format,
+			GetVal: getVal,
+		},
+	)
+}
+
+func (f *fileds) Header() string {
+	res := make([]string, 0, len(f.fs))
+
+	for _, e := range f.fs {
+		res = append(res, e.Name)
+	}
+
+	return strings.Join(res, "\t")
+}
+
+func (f *fileds) Line(v model.VideoData) string {
+	res := make([]string, 0, len(f.fs))
+
+	for _, e := range f.fs {
+		res = append(res, fmt.Sprintf(e.Format, e.GetVal(v)))
+	}
+
+	return strings.Join(res, "\t")
 }

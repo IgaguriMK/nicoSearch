@@ -24,6 +24,10 @@ type VideoData struct {
 }
 
 func (vd *VideoData) SplitDescription(dir string) error {
+	if vd.Description == "" {
+		return nil
+	}
+
 	hash := sha256.Sum256([]byte(vd.Description))
 	hashStr := hex.EncodeToString(hash[:])
 	hashStr = hashStr[:20]
@@ -34,6 +38,7 @@ func (vd *VideoData) SplitDescription(dir string) error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
 	_, err = f.Write([]byte(vd.Description))
 	if err != nil {
